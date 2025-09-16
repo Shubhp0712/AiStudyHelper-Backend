@@ -36,8 +36,7 @@ const studySessionSchema = new mongoose.Schema({
 const progressSchema = new mongoose.Schema({
     userId: {
         type: String,
-        required: true,
-        index: true
+        required: true
     },
 
     // Overall statistics
