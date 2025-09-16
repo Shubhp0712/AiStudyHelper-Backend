@@ -15,7 +15,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai'; // ✅ Import Gemini
 import Quiz from './models/Quiz.js';
 
 // Import Progress Controller
-import { getUserProgress, logStudySession, getAnalytics } from './controllers/progressController.js';
+import { getUserProgress, logStudySession, getAnalytics, getDashboardStatistics } from './controllers/progressController.js';
 
 dotenv.config();
 
@@ -211,6 +211,9 @@ app.post('/api/progress/session', verifyToken, logStudySession);
 
 // Get analytics
 app.get('/api/progress/analytics', verifyToken, getAnalytics);
+
+// Get dashboard statistics
+app.get('/api/progress/statistics', verifyToken, getDashboardStatistics);
 
 // ✅ Gemini AI setup
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);

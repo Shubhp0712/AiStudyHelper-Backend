@@ -1,4 +1,5 @@
 import Progress from '../models/Progress.js';
+import Flashcard from '../models/Flashcard.js';
 
 // Get user's progress data
 export const getUserProgress = async (req, res) => {
@@ -12,14 +13,53 @@ export const getUserProgress = async (req, res) => {
             // Create new progress record if doesn't exist
             progress = new Progress({
                 userId,
-                stats: {},
                 topicsStudied: [],
                 recentSessions: [],
                 weeklyProgress: []
             });
             await progress.save();
             console.log('Created new progress record for user');
+        } else {
+            // Ensure existing progress has properly initialized stats
+            if (!progress.stats) {
+                progress.stats = {};
+            }
+
+            // Initialize any missing stat fields with defaults
+            if (progress.stats.totalFlashcardsCreated === undefined) {
+                progress.stats.totalFlashcardsCreated = 0;
+            }
+            if (progress.stats.totalFlashcardsLearned === undefined) {
+                progress.stats.totalFlashcardsLearned = 0;
+            }
+            if (progress.stats.totalQuizzesTaken === undefined) {
+                progress.stats.totalQuizzesTaken = 0;
+            }
+            if (progress.stats.averageQuizScore === undefined) {
+                progress.stats.averageQuizScore = 0;
+            }
+            if (progress.stats.totalStudyTime === undefined) {
+                progress.stats.totalStudyTime = 0;
+            }
+            if (progress.stats.currentStreak === undefined) {
+                progress.stats.currentStreak = 0;
+            }
+            if (progress.stats.longestStreak === undefined) {
+                progress.stats.longestStreak = 0;
+            }
+
+            // Save if we made any updates
+            await progress.save();
         }
+
+        // Calculate dynamic flashcards created count
+        const flashcardDocuments = await Flashcard.find({ userId });
+        const totalFlashcardsCreated = flashcardDocuments.reduce((total, doc) => {
+            return total + (doc.flashcards ? doc.flashcards.length : 0);
+        }, 0);
+
+        // Update the dynamic count in the response
+        progress.stats.totalFlashcardsCreated = totalFlashcardsCreated;
 
         res.json(progress);
     } catch (error) {
@@ -46,6 +86,34 @@ export const logStudySession = async (req, res) => {
             progress = new Progress({ userId });
         }
 
+        // Ensure stats object exists and is properly initialized
+        if (!progress.stats) {
+            progress.stats = {};
+        }
+
+        // Initialize any missing stat fields with defaults
+        if (progress.stats.totalFlashcardsCreated === undefined) {
+            progress.stats.totalFlashcardsCreated = 0;
+        }
+        if (progress.stats.totalFlashcardsLearned === undefined) {
+            progress.stats.totalFlashcardsLearned = 0;
+        }
+        if (progress.stats.totalQuizzesTaken === undefined) {
+            progress.stats.totalQuizzesTaken = 0;
+        }
+        if (progress.stats.averageQuizScore === undefined) {
+            progress.stats.averageQuizScore = 0;
+        }
+        if (progress.stats.totalStudyTime === undefined) {
+            progress.stats.totalStudyTime = 0;
+        }
+        if (progress.stats.currentStreak === undefined) {
+            progress.stats.currentStreak = 0;
+        }
+        if (progress.stats.longestStreak === undefined) {
+            progress.stats.longestStreak = 0;
+        }
+
         // Create study session
         const session = {
             activityType,
@@ -69,6 +137,15 @@ export const logStudySession = async (req, res) => {
 
         progress.updatedAt = new Date();
         await progress.save();
+
+        // Calculate dynamic flashcards created count
+        const flashcardDocuments = await Flashcard.find({ userId });
+        const totalFlashcardsCreated = flashcardDocuments.reduce((total, doc) => {
+            return total + (doc.flashcards ? doc.flashcards.length : 0);
+        }, 0);
+
+        // Update the dynamic count in the response
+        progress.stats.totalFlashcardsCreated = totalFlashcardsCreated;
 
         console.log('Study session logged successfully');
         res.json({ message: 'Study session logged successfully', progress });
@@ -294,3 +371,50 @@ function calculatePeriodStats(sessions) {
 
     return stats;
 }
+
+// Get dashboard statistics
+export const getDashboardStatistics = async (req, res) => {
+    try {
+        const userId = req.user.uid;
+        console.log('Fetching dashboard statistics for user:', userId);
+
+        // Get progress data
+        const progress = await Progress.findOne({ userId });
+
+        // Initialize default stats
+        let stats = {
+            studySessions: 0,
+            cardsCreated: 0,
+            quizScore: 0,
+            studyStreak: 0
+        };
+
+        if (progress) {
+            // Calculate study sessions
+            stats.studySessions = progress.recentSessions ? progress.recentSessions.length : 0;
+
+            // Calculate study streak
+            stats.studyStreak = progress.stats && progress.stats.currentStreak ? progress.stats.currentStreak : 0;
+
+            // Calculate average quiz score
+            if (progress.recentSessions) {
+                const quizSessions = progress.recentSessions.filter(session =>
+                    session.activityType === 'quiz' && session.activityData && session.activityData.score !== undefined
+                );
+
+                if (quizSessions.length > 0) {
+                    const totalScore = quizSessions.reduce((sum, session) => sum + session.activityData.score, 0);
+                    stats.quizScore = Math.round(totalScore / quizSessions.length);
+                }
+            }
+        }
+
+        // Note: cardsCreated will be calculated on frontend from flashcard service
+        // since it's stored in a different collection
+
+        res.json(stats);
+    } catch (error) {
+        console.error('Error fetching dashboard statistics:', error);
+        res.status(500).json({ error: 'Failed to fetch dashboard statistics' });
+    }
+};

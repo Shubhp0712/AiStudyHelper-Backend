@@ -41,6 +41,10 @@ const progressSchema = new mongoose.Schema({
 
     // Overall statistics
     stats: {
+        totalFlashcardsCreated: {
+            type: Number,
+            default: 0
+        },
         totalFlashcardsLearned: {
             type: Number,
             default: 0
