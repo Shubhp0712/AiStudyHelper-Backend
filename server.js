@@ -7,7 +7,7 @@ import flashcardRoutes from './routes/flashcards.js';
 import authRoutes from './routes/authRoutes.js';
 import chatRoutes from './routes/chats.js';
 import otpRoutes from './routes/otpRoutes.js';
-// import quizRoutes from './routes/quizzes.js';
+import quizRoutes from './routes/quizzes.js';
 
 import { GoogleGenerativeAI } from '@google/generative-ai'; // ✅ Import Gemini
 
@@ -42,7 +42,7 @@ app.use('/api/flashcards', flashcardRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/chats', chatRoutes);
 app.use('/api/otp', otpRoutes);
-// app.use('/api/quizzes', quizRoutes);
+app.use('/api/quizzes', quizRoutes);
 
 // Test endpoint
 app.get('/api/test', (req, res) => {
