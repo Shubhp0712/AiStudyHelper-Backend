@@ -1,14 +1,5 @@
-import admin from "firebase-admin";
+import { admin, isFirebaseInitialized } from "../config/firebase.js";
 import { getAuth } from "firebase-admin/auth";
-import { createRequire } from "module";
-const require = createRequire(import.meta.url);
-const serviceAccount = require("../serviceAccountKey.json");
-
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-  });
-}
 
 export const verifyToken = async (req, res, next) => {
   const authHeader = req.headers.authorization || "";
@@ -19,6 +10,14 @@ export const verifyToken = async (req, res, next) => {
   }
 
   try {
+    if (!isFirebaseInitialized || !admin || !admin.apps.length) {
+      console.warn("⚠️ Firebase not initialized - skipping token verification");
+      // For development without Firebase, you can either:
+      // 1. Skip authentication (not recommended for production)
+      // 2. Return error (recommended)
+      return res.status(500).json({ error: "Authentication service unavailable" });
+    }
+
     const decodedToken = await getAuth().verifyIdToken(token);
     req.user = decodedToken;
     next();

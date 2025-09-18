@@ -1,21 +1,16 @@
 // middleware/authMiddleware.js
-import admin from "firebase-admin";
-import { createRequire } from "module";
-
-const require = createRequire(import.meta.url);
-const serviceAccount = require("../serviceAccountKey.json");
-
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-  });
-}
+import { admin, isFirebaseInitialized } from "../config/firebase.js";
 
 export async function verifyFirebaseToken(req, res, next) {
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader?.startsWith("Bearer ")) {
       return res.status(401).json({ message: "Unauthorized: No token provided" });
+    }
+
+    if (!isFirebaseInitialized || !admin || !admin.apps.length) {
+      console.warn("⚠️ Firebase not initialized - skipping token verification");
+      return res.status(500).json({ message: "Authentication service unavailable" });
     }
 
     const token = authHeader.split(" ")[1];
