@@ -108,7 +108,7 @@ app.post("/api/ask", async (req, res) => {
     }
 
     console.log("🤖 Calling Gemini AI...");
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
     const result = await model.generateContent(question);
     const response = await result.response;
