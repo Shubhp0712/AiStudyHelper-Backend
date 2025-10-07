@@ -3,126 +3,124 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export const generateQuiz = async (req, res) => {
     try {
-        console.log('Quiz generation request received:', req.body);
+        console.log('🎯 Quiz generation request received:', req.body);
         const { content, title, questionCount = 5, questionType = 'multiple-choice', difficulty = 'medium', sourceType = 'notes' } = req.body;
         const userId = req.user.uid;
 
-        console.log('User ID:', userId);
-        console.log('Content length:', content?.length);
-        console.log('API Key exists:', !!process.env.GEMINI_API_KEY);
+        console.log('👤 User ID:', userId);
+        console.log('📝 Content:', content);
 
         if (!content || content.trim() === '') {
-            console.log('No content provided or content is empty');
+            console.log('❌ No content provided');
             return res.status(400).json({ error: 'Content is required to generate quiz' });
         }
 
-        // Prepare prompt for Gemini AI
-        const prompt = `Generate exactly ${questionCount} ${questionType} questions based on the following content. 
-        Difficulty level: ${difficulty}
-        
-        Content: ${content}
-        
-        IMPORTANT: Respond ONLY with a valid JSON array. No additional text or explanation.
-        Format:
-        [
-            {
-                "question": "Question text here",
-                "options": ["Option A", "Option B", "Option C", "Option D"],
-                "correctAnswer": "Option A",
-                "explanation": "Brief explanation"
-            }
-        ]
-        
-        Rules:
-        - For multiple-choice: provide exactly 4 options
-        - correctAnswer must match one of the options exactly
-        - Questions must be relevant to the content
-        - Difficulty level: ${difficulty}`;
+        // Use the existing working Gemini AI endpoint
+        const prompt = `Create exactly ${questionCount} multiple-choice quiz questions about: "${content}"
 
-        console.log('Calling Gemini AI...');
+CRITICAL: Return ONLY a valid JSON array, no markdown, no explanation, no other text.
+
+Format exactly like this:
+[
+  {
+    "question": "What is ${content} primarily used for?",
+    "options": ["Web development", "Mobile apps", "Data analysis", "All of the above"],
+    "correctAnswer": "All of the above",
+    "explanation": "Brief explanation here"
+  }
+]
+
+Requirements:
+- ${questionCount} questions total
+- All questions about: ${content}
+- Difficulty: ${difficulty}
+- Each question must have exactly 4 options
+- correctAnswer must match one of the options exactly
+- Make questions diverse and educational
+- Return ONLY the JSON array, nothing else`;
+
+        console.log('🚀 Calling internal Gemini AI endpoint...');
+
+        // Call the working Gemini endpoint
+        const aiResponse = await fetch(`${process.env.NODE_ENV === 'production' ? 'https://aistudyhelper-backend.onrender.com' : 'http://localhost:5000'}/api/ask`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                question: prompt
+            })
+        });
+
+        if (!aiResponse.ok) {
+            throw new Error(`AI API error! status: ${aiResponse.status}`);
+        }
+
+        const aiData = await aiResponse.json();
+        console.log('✅ AI response received');
+        console.log('📄 Response preview:', aiData.answer.substring(0, 200) + '...');
 
         let questions;
-
         try {
-            // Check if API key exists
-            if (!process.env.GEMINI_API_KEY) {
-                throw new Error('GEMINI_API_KEY not configured');
-            }
+            // Clean the AI response
+            let cleanResponse = aiData.answer.trim();
 
-            // Use Gemini AI directly
-            const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-            const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+            // Remove any markdown formatting
+            cleanResponse = cleanResponse.replace(/```json/g, '').replace(/```/g, '');
 
-            const result = await model.generateContent(prompt);
-            const responseText = result.response.text();
-            console.log('Raw Gemini response:', responseText.substring(0, 200) + '...');
-
-            // Try to extract JSON from the response
-            let jsonString = responseText.trim();
-
-            // Remove any markdown code blocks
-            jsonString = jsonString.replace(/```json\s*/g, '').replace(/```\s*/g, '');
-
-            // Try to find JSON array in the response
-            const jsonMatch = jsonString.match(/\[[\s\S]*\]/);
+            // Extract JSON array
+            const jsonMatch = cleanResponse.match(/\[[\s\S]*\]/);
             if (jsonMatch) {
-                jsonString = jsonMatch[0];
+                cleanResponse = jsonMatch[0];
             }
 
-            questions = JSON.parse(jsonString);
-            console.log('Successfully parsed questions:', questions.length);
+            console.log('🧹 Cleaned response for parsing:', cleanResponse.substring(0, 100) + '...');
 
-        } catch (aiError) {
-            console.error('AI Error:', aiError.message);
+            questions = JSON.parse(cleanResponse);
 
-            // Fallback: Create mock questions based on content
-            console.log('Using fallback question generation...');
+            if (!Array.isArray(questions) || questions.length === 0) {
+                throw new Error('AI did not return a valid question array');
+            }
 
-            const contentWords = content.split(' ').filter(word => word.length > 3);
-            const sampleWords = contentWords.slice(0, 4);
+            console.log('✅ Successfully parsed', questions.length, 'AI-generated questions');
 
-            questions = Array.from({ length: questionCount }, (_, index) => {
-                const questionWord = sampleWords[index % sampleWords.length] || 'concept';
-                return {
-                    question: `What is the main idea related to "${questionWord}" in the given content?`,
-                    options: questionType === 'multiple-choice' ? [
-                        `${questionWord} is the primary focus`,
-                        'It is not mentioned in the content',
-                        'It is a secondary concept',
-                        'None of the above'
-                    ] : [],
-                    correctAnswer: questionType === 'multiple-choice' ? `${questionWord} is the primary focus` : `The main idea related to ${questionWord}`,
-                    explanation: `This question tests understanding of ${questionWord} from the provided content.`
-                };
-            });
+        } catch (parseError) {
+            console.error('❌ Failed to parse AI response:', parseError.message);
+            console.log('🔄 Raw AI response that failed to parse:', aiData.answer);
+
+            // If parsing fails, try a different approach
+            throw new Error('AI response could not be parsed as valid JSON');
         }
 
-        // Validate questions structure
-        if (!Array.isArray(questions) || questions.length === 0) {
-            throw new Error('No valid questions generated');
-        }
-
-        // Validate and format questions
+        // Validate and format the AI-generated questions
         const formattedQuestions = questions.map((q, index) => {
             if (!q.question) {
-                throw new Error(`Question ${index + 1} is missing question text`);
+                throw new Error(`AI question ${index + 1} is missing question text`);
+            }
+
+            if (!q.options || !Array.isArray(q.options) || q.options.length !== 4) {
+                throw new Error(`AI question ${index + 1} doesn't have exactly 4 options`);
+            }
+
+            if (!q.correctAnswer) {
+                throw new Error(`AI question ${index + 1} is missing correct answer`);
             }
 
             return {
                 type: questionType,
                 question: q.question,
-                options: questionType === 'multiple-choice' ? (q.options || []) : [],
-                correctAnswer: q.correctAnswer || 'Answer not provided',
-                explanation: q.explanation || 'No explanation provided'
+                options: q.options,
+                correctAnswer: q.correctAnswer,
+                explanation: q.explanation || `This question tests your knowledge of ${content}.`
             };
         });
 
-        console.log('Formatted questions count:', formattedQuestions.length);
+        console.log('📊 Final AI-generated questions count:', formattedQuestions.length);
 
         // Save quiz to database
         const quiz = new Quiz({
             userId,
-            title: title || `Quiz - ${new Date().toLocaleDateString()}`,
+            title: title || `AI Quiz: ${content} - ${new Date().toLocaleDateString()}`,
             questions: formattedQuestions,
             sourceType,
             sourceContent: content,
@@ -131,27 +129,30 @@ export const generateQuiz = async (req, res) => {
             updatedAt: new Date()
         });
 
-        console.log('Saving quiz to database...');
+        console.log('💾 Saving AI-generated quiz to database...');
         await quiz.save();
-        console.log('Quiz saved successfully with ID:', quiz._id);
+        console.log('✅ AI Quiz saved successfully with ID:', quiz._id);
 
         res.status(201).json({
-            message: 'Quiz generated successfully',
-            quiz: quiz
+            message: 'AI Quiz generated successfully',
+            quiz: quiz,
+            generatedBy: 'Gemini AI',
+            questionCount: formattedQuestions.length,
+            aiPowered: true
         });
 
     } catch (error) {
-        console.error('Error generating quiz:', error);
-        console.error('Error stack:', error.stack);
+        console.error('💥 Quiz generation error:', error.message);
+        console.error('📊 Error details:', error);
+
         res.status(500).json({
-            error: 'Failed to generate quiz',
+            error: 'Failed to generate AI quiz',
             details: error.message,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            suggestion: 'Please try again or check if the content is appropriate for quiz generation'
         });
     }
-};
-
-// Get all quizzes for a user
+};// Get all quizzes for a user
 export const getUserQuizzes = async (req, res) => {
     try {
         const userId = req.user.uid;
