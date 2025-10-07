@@ -39,31 +39,27 @@ Requirements:
 - Make questions diverse and educational
 - Return ONLY the JSON array, nothing else`;
 
-        console.log('🚀 Calling internal Gemini AI endpoint...');
+        console.log('🚀 Calling Gemini AI directly...');
 
-        // Call the working Gemini endpoint
-        const aiResponse = await fetch(`${process.env.NODE_ENV === 'production' ? 'https://aistudyhelper-backend.onrender.com' : 'http://localhost:5000'}/api/ask`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                question: prompt
-            })
-        });
-
-        if (!aiResponse.ok) {
-            throw new Error(`AI API error! status: ${aiResponse.status}`);
+        // Use direct Gemini AI (same as in server.js)
+        if (!process.env.GEMINI_API_KEY) {
+            throw new Error('GEMINI_API_KEY is not configured');
         }
 
-        const aiData = await aiResponse.json();
-        console.log('✅ AI response received');
-        console.log('📄 Response preview:', aiData.answer.substring(0, 200) + '...');
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const responseText = response.text();
+
+        console.log('✅ Gemini AI response received');
+        console.log('📄 Response preview:', responseText.substring(0, 200) + '...');
 
         let questions;
         try {
             // Clean the AI response
-            let cleanResponse = aiData.answer.trim();
+            let cleanResponse = responseText.trim();
 
             // Remove any markdown formatting
             cleanResponse = cleanResponse.replace(/```json/g, '').replace(/```/g, '');
@@ -86,10 +82,10 @@ Requirements:
 
         } catch (parseError) {
             console.error('❌ Failed to parse AI response:', parseError.message);
-            console.log('🔄 Raw AI response that failed to parse:', aiData.answer);
+            console.log('🔄 Raw AI response that failed to parse:', responseText);
 
             // If parsing fails, try a different approach
-            throw new Error('AI response could not be parsed as valid JSON');
+            throw new Error(`AI response could not be parsed as valid JSON: ${parseError.message}`);
         }
 
         // Validate and format the AI-generated questions
@@ -99,11 +95,17 @@ Requirements:
             }
 
             if (!q.options || !Array.isArray(q.options) || q.options.length !== 4) {
-                throw new Error(`AI question ${index + 1} doesn't have exactly 4 options`);
+                console.log(`Warning: Question ${index + 1} options:`, q.options);
+                // Fix options if they're not exactly 4
+                const baseOptions = q.options || [];
+                while (baseOptions.length < 4) {
+                    baseOptions.push(`Option ${baseOptions.length + 1}`);
+                }
+                q.options = baseOptions.slice(0, 4);
             }
 
             if (!q.correctAnswer) {
-                throw new Error(`AI question ${index + 1} is missing correct answer`);
+                q.correctAnswer = q.options[0]; // Default to first option
             }
 
             return {
