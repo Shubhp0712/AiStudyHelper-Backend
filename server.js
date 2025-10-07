@@ -56,6 +56,18 @@ app.get('/api/test', (req, res) => {
   res.json({ message: 'Server is running!', timestamp: new Date().toISOString() });
 });
 
+// Environment test endpoint
+app.get('/api/test/env', (req, res) => {
+  res.json({
+    message: 'Environment check',
+    mongoConnected: mongoose.connection.readyState === 1,
+    geminiApiKeyExists: !!process.env.GEMINI_API_KEY,
+    geminiApiKeyLength: process.env.GEMINI_API_KEY?.length || 0,
+    nodeEnv: process.env.NODE_ENV,
+    timestamp: new Date().toISOString()
+  });
+});
+
 // OTP test endpoint
 app.get('/api/otp/test', (req, res) => {
   res.json({ message: 'OTP service is accessible!', timestamp: new Date().toISOString() });
