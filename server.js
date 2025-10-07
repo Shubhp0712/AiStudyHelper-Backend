@@ -89,6 +89,28 @@ app.get('/api/progress/statistics', verifyToken, getDashboardStatistics);
 // ✅ Gemini AI setup
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
+// Internal function for Gemini AI calls (used by quiz controller)
+export const callGeminiAI = async (prompt) => {
+  try {
+    if (!process.env.GEMINI_API_KEY) {
+      throw new Error('GEMINI_API_KEY is not configured');
+    }
+
+    console.log("🤖 Internal Gemini AI call...");
+    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+
+    console.log("✅ Internal Gemini response received");
+    return { answer: text };
+  } catch (error) {
+    console.error("❌ Internal Gemini AI Error:", error.message);
+    throw error;
+  }
+};
+
 // ✅ Gemini endpoint (no auth required for general questions)
 app.post("/api/ask", async (req, res) => {
   const { question } = req.body;

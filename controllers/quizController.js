@@ -1,5 +1,5 @@
 import Quiz from '../models/Quiz.js';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { callGeminiAI } from '../server.js';
 
 export const generateQuiz = async (req, res) => {
     try {
@@ -39,19 +39,11 @@ Requirements:
 - Make questions diverse and educational
 - Return ONLY the JSON array, nothing else`;
 
-        console.log('🚀 Calling Gemini AI directly...');
+        console.log('🚀 Using internal Gemini AI function...');
 
-        // Use direct Gemini AI (same as in server.js)
-        if (!process.env.GEMINI_API_KEY) {
-            throw new Error('GEMINI_API_KEY is not configured');
-        }
-
-        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        const responseText = response.text();
+        // Use the working internal Gemini function
+        const aiResult = await callGeminiAI(prompt);
+        const responseText = aiResult.answer;
 
         console.log('✅ Gemini AI response received');
         console.log('📄 Response preview:', responseText.substring(0, 200) + '...');
