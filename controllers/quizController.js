@@ -1,4 +1,5 @@
 import Quiz from '../models/Quiz.js';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export const generateQuiz = async (req, res) => {
     try {
@@ -35,22 +36,12 @@ export const generateQuiz = async (req, res) => {
 
         console.log('Calling Gemini AI with prompt length:', prompt.length);
 
-        // Call Gemini AI API (using the correct endpoint from your server)
-        const response = await fetch('http://localhost:5000/api/ask', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                question: prompt
-            })
-        });
+        // Use Gemini AI directly
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
 
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const responseData = await response.json();
+        const result = await model.generateContent(prompt);
+        const responseData = { answer: result.response.text() };
         console.log('Gemini AI response received:', responseData);
 
         let questions;
@@ -68,7 +59,7 @@ export const generateQuiz = async (req, res) => {
             }
         } catch (parseError) {
             console.error('Error parsing AI response:', parseError);
-            console.error('AI Response was:', response.data.answer);
+            console.error('AI Response was:', responseData.answer);
             return res.status(500).json({
                 error: 'Failed to generate valid quiz questions',
                 details: parseError.message,

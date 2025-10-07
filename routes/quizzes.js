@@ -1,40 +1,33 @@
 import express from "express";
 import { verifyToken } from "../middleware/verifyToken.js";
+import {
+    generateQuiz,
+    getUserQuizzes,
+    getQuizById,
+    updateQuiz,
+    deleteQuiz
+} from "../controllers/quizController.js";
 
 const router = express.Router();
 
-// Simple test route to verify routes are working
+// Test route to verify routes are working
 router.get("/test", (req, res) => {
     res.json({ message: "Quiz routes are working!" });
 });
 
-// Generate quiz route (without controller for now to test basic routing)
-router.post("/generate", verifyToken, async (req, res) => {
-    try {
-        console.log("Quiz generation endpoint hit!");
-        console.log("Request body:", req.body);
-        console.log("User:", req.user?.uid);
+// Generate quiz route
+router.post("/generate", verifyToken, generateQuiz);
 
-        res.json({
-            message: "Quiz generation endpoint working",
-            userId: req.user?.uid,
-            requestBody: req.body
-        });
-    } catch (error) {
-        console.error("Error in quiz generation:", error);
-        res.status(500).json({ error: "Internal server error" });
-    }
-});
+// Get all quizzes for the user
+router.get("/", verifyToken, getUserQuizzes);
 
-// Get all quizzes route
-router.get("/", verifyToken, async (req, res) => {
-    try {
-        console.log("Get quizzes endpoint hit!");
-        res.json({ message: "Get quizzes endpoint working", quizzes: [] });
-    } catch (error) {
-        console.error("Error fetching quizzes:", error);
-        res.status(500).json({ error: "Failed to fetch quizzes" });
-    }
-});
+// Get specific quiz by ID
+router.get("/:id", verifyToken, getQuizById);
+
+// Update quiz
+router.put("/:id", verifyToken, updateQuiz);
+
+// Delete quiz
+router.delete("/:id", verifyToken, deleteQuiz);
 
 export default router;
