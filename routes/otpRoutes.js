@@ -28,7 +28,10 @@ const transporter = nodemailer.createTransport({
     pool: true,
     maxConnections: 5,
     maxMessages: 100,
-    rateLimit: 10
+    rateLimit: 10,
+    connectionTimeout: 30000,
+    greetingTimeout: 30000,
+    socketTimeout: 30000
 });
 
 // Generate OTP
@@ -111,7 +114,7 @@ router.post('/send-otp', async (req, res) => {
 
         const emailPromise = transporter.sendMail(mailOptions);
         const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Email timeout after 10 seconds')), 10000)
+            setTimeout(() => reject(new Error('Email timeout after 30 seconds')), 30000)
         );
 
         await Promise.race([emailPromise, timeoutPromise]);
