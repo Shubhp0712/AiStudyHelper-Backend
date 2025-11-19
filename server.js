@@ -27,7 +27,7 @@ const app = express();
 // Enhanced CORS configuration
 app.use(cors({
   origin: [
-    'http://localhost:3000',
+    // 'http://localhost:3000',
     'https://ai-study-assistant-frontend.onrender.com',
     'https://aistudyhelper-frontend.onrender.com'
   ],
@@ -97,7 +97,7 @@ export const callGeminiAI = async (prompt) => {
     }
 
     console.log("🤖 Internal Gemini AI call...");
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
@@ -130,7 +130,7 @@ app.post("/api/ask", async (req, res) => {
     }
 
     console.log("🤖 Calling Gemini AI...");
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const result = await model.generateContent(question);
     const response = await result.response;

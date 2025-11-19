@@ -20,7 +20,7 @@ export const generateFlashcards = async (req, res) => {
     return res.status(500).json({ error: "Gemini API key not configured." });
   }
 
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${process.env.GEMINI_API_KEY}`;
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
 
   const prompt = `Generate 5 flashcards for the topic "${topic}". Respond in JSON format ONLY as an array of objects with "question" and "answer" fields. Example:
   [

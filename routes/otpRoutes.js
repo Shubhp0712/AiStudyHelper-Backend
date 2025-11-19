@@ -24,7 +24,11 @@ const transporter = nodemailer.createTransport({
     },
     tls: {
         rejectUnauthorized: false
-    }
+    },
+    pool: true,
+    maxConnections: 5,
+    maxMessages: 100,
+    rateLimit: 10
 });
 
 // Generate OTP
@@ -102,8 +106,17 @@ router.post('/send-otp', async (req, res) => {
             text: `Your OTP code for AI Study Assistant is: ${otp}. This code will expire in 5 minutes.`
         };
 
-        // Send email
-        await transporter.sendMail(mailOptions);
+        // Send email with timeout
+        console.log(`📤 Sending OTP email to ${email}...`);
+
+        const emailPromise = transporter.sendMail(mailOptions);
+        const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Email timeout after 10 seconds')), 10000)
+        );
+
+        await Promise.race([emailPromise, timeoutPromise]);
+
+        console.log(`✅ OTP email sent successfully to ${email}`);
 
         res.json({
             success: true,
@@ -111,11 +124,15 @@ router.post('/send-otp', async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Error sending OTP:', error);
+        console.error('❌ Error sending OTP:', error.message);
 
         let errorMessage = 'Failed to send OTP';
         if (error.code === 'EAUTH') {
             errorMessage = 'Gmail authentication failed. You need a Gmail App Password, not your regular password.';
+            console.error('🔑 Gmail App Password required. Visit: https://myaccount.google.com/apppasswords');
+        } else if (error.message.includes('timeout')) {
+            errorMessage = 'Email service timeout. Please try again.';
+            console.error('⏰ Email sending timed out after 10 seconds');
         }
 
         res.status(500).json({
