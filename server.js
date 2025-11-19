@@ -27,7 +27,7 @@ const app = express();
 // Enhanced CORS configuration
 app.use(cors({
   origin: [
-    // 'http://localhost:3000',
+    'http://localhost:3000',
     'https://ai-study-assistant-frontend.onrender.com',
     'https://aistudyhelper-frontend.onrender.com'
   ],
